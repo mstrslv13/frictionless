@@ -20,6 +20,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     override init() {
         super.init() // Call super.init() for NSObject
+        
+        // Single Instance Enforcement
+        // Identify if another instance is running by Bundle ID (if bundled) or Executable Name
+        let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "com.mstrslv.frictionless")
+        let currentApp = NSRunningApplication.current
+        
+        // If there's another instance running that isn't this one
+        for app in runningApps {
+            if app != currentApp && app.executableURL == currentApp.executableURL {
+                print("Another instance is already running. Terminating.")
+                // Activate the existing instance?
+                app.activate(options: .activateIgnoringOtherApps)
+                NSApp.terminate(nil)
+                return
+            }
+        }
+        
         let monitor = SystemMonitor()
         let settings = SettingsManager.shared
         self.monitor = monitor
