@@ -94,7 +94,7 @@ struct CPUDetailView: View {
             .chartYScale(domain: 0...100)
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
-            .frame(height: 100)
+            .frame(height: 90) // Reduced chart height
             // Removed horizontal padding for edge-to-edge
             
             Text(String(format: "%.1f%%", monitor.cpuUsage))
@@ -112,7 +112,7 @@ struct CPUDetailView: View {
             }
             .padding(.bottom, 10)
         }
-        .frame(width: 226, height: 360) // Expanded +80
+        .frame(width: 226, height: 300) // Reduced from 360 -> 300
         .oledStyle()
         .background(Color.black) // Ensure root black
     }
@@ -150,7 +150,7 @@ struct RAMDetailView: View {
             .chartYScale(domain: 0...100)
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
-            .frame(height: 90)
+            .frame(height: 80) // Reduced chart height
             // Removed horizontal padding
             
             VStack(spacing: 0) {
@@ -163,7 +163,7 @@ struct RAMDetailView: View {
             
             Spacer(minLength: 0)
         }
-        .frame(width: 226, height: 310) // Expanded +80 from 230 -> 310
+        .frame(width: 226, height: 260) // Reduced from 310 -> 260
         .oledStyle()
         .background(Color.black)
     }
@@ -230,7 +230,7 @@ struct DiskDetailView: View {
             Spacer(minLength: 0)
             Spacer(minLength: 0)
         }
-        .frame(width: 226, height: 360) // Expanded +80
+        .frame(width: 226, height: 320) // Reduced from 360 -> 320
         .oledStyle()
         .background(Color.black)
     }
@@ -264,7 +264,7 @@ struct NetworkDetailView: View {
                         x: .value("Time", index),
                         y: .value("Download", value)
                     )
-                    .foregroundStyle(.purple)
+                    .foregroundStyle(.cyan)
                     .lineStyle(StrokeStyle(lineWidth: 1))
                 }
                 
@@ -273,7 +273,7 @@ struct NetworkDetailView: View {
                         x: .value("Time", index),
                         y: .value("Upload", value)
                     )
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.orange)
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
                 }
             }
@@ -281,7 +281,7 @@ struct NetworkDetailView: View {
             .chartYScale(domain: 1...max(1024, (monitor.networkInHistory.max() ?? 0) * 1.5), type: .log)
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
-            .frame(height: 90)
+            .frame(height: 80) // Reduced height
             // Removed horizontal padding
             
             // Speeds
@@ -292,7 +292,7 @@ struct NetworkDetailView: View {
                         .foregroundColor(.secondary)
                     Text(formatBytes(monitor.networkIn) + "/s")
                         .fontWeight(.semibold)
-                        .foregroundColor(.purple)
+                        .foregroundColor(.cyan)
                 }
                 
                 VStack(spacing: 2) {
@@ -301,7 +301,7 @@ struct NetworkDetailView: View {
                         .foregroundColor(.secondary)
                     Text(formatBytes(monitor.networkOut) + "/s")
                         .fontWeight(.semibold)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.orange)
                 }
             }
             
@@ -330,7 +330,7 @@ struct NetworkDetailView: View {
             
             Spacer(minLength: 0)
         }
-        .frame(width: 226, height: 380) // Expanded +80 from 300 -> 380
+        .frame(width: 226, height: 320) // Reduced from 380 -> 320 (Tightened)
         .oledStyle()
         .background(Color.black)
     }

@@ -5,7 +5,7 @@ class SettingsManager: ObservableObject {
     static let shared = SettingsManager()
     
     // V3.6 New Settings
-    @AppStorage("isSingleIconMode") var isSingleIconMode: Bool = false
+    @AppStorage("isSingleIconMode") var isSingleIconMode: Bool = true
     @AppStorage("launchAtLogin") var launchAtLogin: Bool = true // Default ON
     
     @AppStorage("showCPU") var showCPU: Bool = true
