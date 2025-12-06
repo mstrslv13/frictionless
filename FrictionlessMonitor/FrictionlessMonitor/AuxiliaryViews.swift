@@ -28,7 +28,7 @@ struct SettingsView: View {
                         .font(.headline)
                         .foregroundColor(.secondary)
                     
-                    Toggle("Single Icon Mode", isOn: $isSingleIconMode)
+                    Toggle("Unified Icon", isOn: $isSingleIconMode)
                         .toggleStyle(.switch)
                     
                     Toggle("Launch at Login", isOn: Binding(

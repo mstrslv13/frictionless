@@ -66,14 +66,14 @@ struct CPUDetailView: View {
     @State private var showProcesses = false
     
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) { // Tight spacing
             DetailHeader(title: "CPU")
-            
-            Spacer(minLength: 0)
             
             Text("\(monitor.cpuModel) \(monitor.physicalCores) Cores")
                 .font(.subheadline)
                 .multilineTextAlignment(.center)
+                .padding(.top, 10)
+                .padding(.bottom, 4)
             
             Chart(Array(monitor.cpuHistory.enumerated()), id: \.offset) { index, value in
                 LineMark(
@@ -82,25 +82,23 @@ struct CPUDetailView: View {
                 )
                 .interpolationMethod(.monotone)
                 .foregroundStyle(Color.blue)
-                .lineStyle(StrokeStyle(lineWidth: 1))
+                .lineStyle(StrokeStyle(lineWidth: 1.5)) // Slightly thicker line
                 
                 AreaMark(
                      x: .value("Time", index),
                      y: .value("Usage", value)
                 )
                 .interpolationMethod(.monotone)
-                .foregroundStyle(Color.blue.opacity(0.1))
+                .foregroundStyle(Color.blue.opacity(0.15)) // Better fill
             }
             .chartYScale(domain: 0...100)
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
-            .frame(height: 90) // Reduced chart height
-            // Removed horizontal padding for edge-to-edge
+            .frame(height: 80) // Compact chart
             
             Text(String(format: "%.1f%%", monitor.cpuUsage))
                 .font(.system(size: 28, weight: .bold, design: .rounded))
-            
-            Spacer(minLength: 0)
+                .padding(.vertical, 8)
             
             Button("Manage Processes") {
                 showProcesses.toggle()
@@ -110,11 +108,11 @@ struct CPUDetailView: View {
                     .frame(width: 300, height: 400)
                     .background(Color.black)
             }
-            .padding(.bottom, 10)
+            .padding(.bottom, 12)
         }
-        .frame(width: 226, height: 300) // Reduced from 360 -> 300
+        .frame(width: 226, height: 260) // Heavily Reduced from 300
         .oledStyle()
-        .background(Color.black) // Ensure root black
+        .background(Color.black)
     }
 }
 
@@ -123,10 +121,8 @@ struct RAMDetailView: View {
     @ObservedObject var monitor: SystemMonitor
     
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 0) {
             DetailHeader(title: "Memory")
-            
-            Spacer(minLength: 0)
             
             let totalGB = Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824.0
             let usedGB = totalGB * (monitor.memoryUsage / 100.0)
@@ -138,32 +134,31 @@ struct RAMDetailView: View {
                 )
                 .interpolationMethod(.monotone)
                 .foregroundStyle(Color.green)
-                .lineStyle(StrokeStyle(lineWidth: 1))
+                .lineStyle(StrokeStyle(lineWidth: 1.5))
                 
                 AreaMark(
                      x: .value("Time", index),
                      y: .value("Usage", value)
                 )
                 .interpolationMethod(.monotone)
-                .foregroundStyle(Color.green.opacity(0.1))
+                .foregroundStyle(Color.green.opacity(0.15))
             }
             .chartYScale(domain: 0...100)
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
-            .frame(height: 80) // Reduced chart height
-            // Removed horizontal padding
+            .frame(height: 80)
+            .padding(.top, 10)
             
-            VStack(spacing: 0) {
+            VStack(spacing: 2) {
                 Text(String(format: "%.1f GB", usedGB))
                     .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundColor(.green)
                 Text("/ \(String(format: "%.0f", totalGB)) GB")
                     .foregroundColor(.secondary)
             }
-            
-            Spacer(minLength: 0)
+            .padding(.vertical, 10)
         }
-        .frame(width: 226, height: 260) // Reduced from 310 -> 260
+        .frame(width: 226, height: 230) // Heavily Reduced
         .oledStyle()
         .background(Color.black)
     }
@@ -175,10 +170,8 @@ struct DiskDetailView: View {
     @ObservedObject var settings: SettingsManager
     
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
             DetailHeader(title: "Storage")
-            
-            Spacer(minLength: 0)
             
             ZStack {
                 Circle()
@@ -199,10 +192,10 @@ struct DiskDetailView: View {
                         .fontWeight(.bold)
                 }
             }
-            .frame(width: 100, height: 100)
-            .padding()
+            .frame(width: 90, height: 90) // Slightly smaller
+            .padding(.vertical, 10)
             
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Free: " + getFreeSpace())
                     .fontWeight(.medium)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -226,11 +219,9 @@ struct DiskDetailView: View {
                 .controlSize(.small)
             }
             .padding(.horizontal)
-            
-            Spacer(minLength: 0)
-            Spacer(minLength: 0)
+            .padding(.bottom, 12)
         }
-        .frame(width: 226, height: 320) // Reduced from 360 -> 320
+        .frame(width: 226, height: 250) // Heavily Reduced
         .oledStyle()
         .background(Color.black)
     }
@@ -249,14 +240,14 @@ struct NetworkDetailView: View {
     @ObservedObject var monitor: SystemMonitor
     
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 0) {
             DetailHeader(title: "Network")
-            
-            Spacer(minLength: 0)
             
             Text(monitor.localIP)
                 .font(.system(.body, design: .monospaced))
                 .foregroundColor(.secondary)
+                .padding(.top, 4)
+                .padding(.bottom, 8)
             
             Chart {
                 ForEach(Array(monitor.networkInHistory.enumerated()), id: \.offset) { index, value in
@@ -265,7 +256,13 @@ struct NetworkDetailView: View {
                         y: .value("Download", value)
                     )
                     .foregroundStyle(.cyan)
-                    .lineStyle(StrokeStyle(lineWidth: 1))
+                    .lineStyle(StrokeStyle(lineWidth: 1.5))
+                    
+                    AreaMark(
+                         x: .value("Time", index),
+                         y: .value("Download", value)
+                    )
+                    .foregroundStyle(.cyan.opacity(0.15))
                 }
                 
                 ForEach(Array(monitor.networkOutHistory.enumerated()), id: \.offset) { index, value in
@@ -274,15 +271,22 @@ struct NetworkDetailView: View {
                         y: .value("Upload", value)
                     )
                     .foregroundStyle(.orange)
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
+                    
+                    // No AreaMark for upload dashed line to keep visual clarity? Or add subtle?
+                    // Let's add subtle fill to ensure it's visible.
+                    AreaMark(
+                         x: .value("Time", index),
+                         y: .value("Upload", value)
+                    )
+                    .foregroundStyle(.orange.opacity(0.1))
                 }
             }
-            // Log Scale for Network: Clamp min 1 to avoid log(0) error
+            // Log Scale, clamp min.
             .chartYScale(domain: 1...max(1024, (monitor.networkInHistory.max() ?? 0) * 1.5), type: .log)
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
             .frame(height: 80) // Reduced height
-            // Removed horizontal padding
             
             // Speeds
             HStack(spacing: 20) {
@@ -304,6 +308,7 @@ struct NetworkDetailView: View {
                         .foregroundColor(.orange)
                 }
             }
+            .padding(.vertical, 10)
             
             Divider().background(Color.gray.opacity(0.3)).padding(.horizontal, 20)
             
@@ -327,10 +332,9 @@ struct NetworkDetailView: View {
                          .foregroundColor(.white)
                  }
             }
-            
-            Spacer(minLength: 0)
+            .padding(.vertical, 10)
         }
-        .frame(width: 226, height: 320) // Reduced from 380 -> 320 (Tightened)
+        .frame(width: 226, height: 280) // Heavily Reduced
         .oledStyle()
         .background(Color.black)
     }
