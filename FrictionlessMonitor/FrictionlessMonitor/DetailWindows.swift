@@ -253,14 +253,14 @@ struct NetworkDetailView: View {
                 ForEach(Array(monitor.networkInHistory.enumerated()), id: \.offset) { index, value in
                     LineMark(
                         x: .value("Time", index),
-                        y: .value("Download", value)
+                        y: .value("Download", max(1.0, value)) // Clamp min 1.0
                     )
                     .foregroundStyle(.cyan)
                     .lineStyle(StrokeStyle(lineWidth: 1.5))
                     
                     AreaMark(
                          x: .value("Time", index),
-                         y: .value("Download", value)
+                         y: .value("Download", max(1.0, value)) // Clamp min 1.0
                     )
                     .foregroundStyle(.cyan.opacity(0.15))
                 }
@@ -268,16 +268,14 @@ struct NetworkDetailView: View {
                 ForEach(Array(monitor.networkOutHistory.enumerated()), id: \.offset) { index, value in
                     LineMark(
                         x: .value("Time", index),
-                        y: .value("Upload", value)
+                        y: .value("Upload", max(1.0, value)) // Clamp min 1.0
                     )
                     .foregroundStyle(.orange)
                     .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
                     
-                    // No AreaMark for upload dashed line to keep visual clarity? Or add subtle?
-                    // Let's add subtle fill to ensure it's visible.
                     AreaMark(
                          x: .value("Time", index),
-                         y: .value("Upload", value)
+                         y: .value("Upload", max(1.0, value)) // Clamp min 1.0
                     )
                     .foregroundStyle(.orange.opacity(0.1))
                 }
