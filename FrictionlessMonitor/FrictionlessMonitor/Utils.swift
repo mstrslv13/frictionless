@@ -1,6 +1,7 @@
 import Foundation
 
 func formatBytes(_ bytes: Double) -> String {
+    guard !bytes.isNaN && !bytes.isInfinite else { return "0 B" }
     if bytes < 1.0 { return "0 B" }
     let formatter = ByteCountFormatter()
     formatter.allowedUnits = [.useBytes, .useKB, .useMB, .useGB]

@@ -251,37 +251,39 @@ struct NetworkDetailView: View {
             
             Chart {
                 ForEach(Array(monitor.networkInHistory.enumerated()), id: \.offset) { index, value in
+                    let safeValue = value.isNaN || value.isInfinite ? 0.1 : max(0.1, value)
                     LineMark(
                         x: .value("Time", index),
-                        y: .value("Download", max(1.0, value)) // Clamp min 1.0
+                        y: .value("Download", safeValue)
                     )
                     .foregroundStyle(.cyan)
                     .lineStyle(StrokeStyle(lineWidth: 1.5))
                     
                     AreaMark(
                          x: .value("Time", index),
-                         y: .value("Download", max(1.0, value)) // Clamp min 1.0
+                         y: .value("Download", safeValue)
                     )
                     .foregroundStyle(.cyan.opacity(0.15))
                 }
                 
                 ForEach(Array(monitor.networkOutHistory.enumerated()), id: \.offset) { index, value in
+                    let safeValue = value.isNaN || value.isInfinite ? 0.1 : max(0.1, value)
                     LineMark(
                         x: .value("Time", index),
-                        y: .value("Upload", max(1.0, value)) // Clamp min 1.0
+                        y: .value("Upload", safeValue)
                     )
                     .foregroundStyle(.orange)
                     .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
                     
                     AreaMark(
                          x: .value("Time", index),
-                         y: .value("Upload", max(1.0, value)) // Clamp min 1.0
+                         y: .value("Upload", safeValue)
                     )
                     .foregroundStyle(.orange.opacity(0.1))
                 }
             }
-            // Log Scale, clamp min.
-            .chartYScale(domain: 1...max(1024, (monitor.networkInHistory.max() ?? 0) * 1.5), type: .log)
+            // Log Scale: Start at 0.1 to allow "0" values (clamped to 0.1) to sit at bottom without clip
+            .chartYScale(domain: 0.1...max(1024, (monitor.networkInHistory.max() ?? 0) * 1.5), type: .log)
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
             .frame(height: 80) // Reduced height
