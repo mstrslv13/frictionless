@@ -6,7 +6,7 @@ struct AboutView: View {
     var body: some View {
         VStack(spacing: 20) {
             // Icon
-            if let imagePath = Bundle.module.path(forResource: "FrictionlessIcon", ofType: "jpg"),
+            if let imagePath = Bundle.main.path(forResource: "FrictionlessIcon", ofType: "jpg"),
                let nsImage = NSImage(contentsOfFile: imagePath) {
                 Image(nsImage: nsImage)
                     .resizable()

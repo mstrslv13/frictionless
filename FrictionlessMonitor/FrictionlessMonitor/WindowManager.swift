@@ -1,7 +1,10 @@
 import SwiftUI
+import Combine
 import AppKit
 
 class WindowManager: NSObject, ObservableObject {
+
+    
     static let shared = WindowManager()
     
     // Check if windows are open
