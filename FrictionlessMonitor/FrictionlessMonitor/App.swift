@@ -43,6 +43,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.settings = settings
         self.menuManager = MenuBarManager(monitor: monitor, settings: settings)
         
+        // --- Migration Logic for v3.9+ ---
+        // Force Unified Icon for users upgrading from older versions
+        let migrationKey = "v3.9.defaultMigrated"
+        if !UserDefaults.standard.bool(forKey: migrationKey) {
+            UserDefaults.standard.set(true, forKey: "isSingleIconMode")
+            UserDefaults.standard.set(true, forKey: migrationKey)
+        }
+        // --- End Migration ---
+        
         // Set App Icon
         if let imagePath = Bundle.main.path(forResource: "FrictionlessIcon", ofType: "jpg"),
            let image = NSImage(contentsOfFile: imagePath) {

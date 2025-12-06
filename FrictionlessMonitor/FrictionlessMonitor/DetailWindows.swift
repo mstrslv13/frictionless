@@ -256,14 +256,14 @@ struct NetworkDetailView: View {
                         x: .value("Time", index),
                         y: .value("Download", safeValue)
                     )
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(Color(red: 0, green: 0.9, blue: 1)) // Bright Cyan
                     .lineStyle(StrokeStyle(lineWidth: 1.5))
                     
                     AreaMark(
                          x: .value("Time", index),
                          y: .value("Download", safeValue)
                     )
-                    .foregroundStyle(.cyan.opacity(0.15))
+                    .foregroundStyle(Color(red: 0, green: 0.9, blue: 1).opacity(0.2))
                 }
                 
                 ForEach(Array(monitor.networkOutHistory.enumerated()), id: \.offset) { index, value in
@@ -289,14 +289,15 @@ struct NetworkDetailView: View {
             .frame(height: 80) // Reduced height
             
             // Speeds
-            HStack(spacing: 20) {
+            HStack(spacing: 16) {
                 VStack(spacing: 2) {
                     Text("Download")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                     Text(formatBytes(monitor.networkIn) + "/s")
                         .fontWeight(.semibold)
-                        .foregroundColor(.cyan)
+                        .foregroundColor(Color(red: 0, green: 0.9, blue: 1)) // Bright Cyan
+                        .frame(minWidth: 60)
                 }
                 
                 VStack(spacing: 2) {
@@ -306,6 +307,7 @@ struct NetworkDetailView: View {
                     Text(formatBytes(monitor.networkOut) + "/s")
                         .fontWeight(.semibold)
                         .foregroundColor(.orange)
+                        .frame(minWidth: 60)
                 }
             }
             .padding(.vertical, 10)
