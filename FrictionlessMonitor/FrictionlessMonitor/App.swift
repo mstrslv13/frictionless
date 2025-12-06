@@ -44,7 +44,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.menuManager = MenuBarManager(monitor: monitor, settings: settings)
         
         // Set App Icon
-        if let imagePath = Bundle.module.path(forResource: "FrictionlessIcon", ofType: "jpg"),
+        if let imagePath = Bundle.main.path(forResource: "FrictionlessIcon", ofType: "jpg"),
            let image = NSImage(contentsOfFile: imagePath) {
             NSApplication.shared.applicationIconImage = image
         }
