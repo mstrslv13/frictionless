@@ -55,8 +55,8 @@ struct DetailHeader: View {
                     .background(Color.black)
             }
         }
-        .padding(.horizontal)
-        .padding(.top, 10)
+        .padding(.horizontal, 12)
+        .padding(.top, 12)
     }
 }
 
@@ -110,7 +110,7 @@ struct CPUDetailView: View {
             }
             .padding(.bottom, 12)
         }
-        .frame(width: 226, height: 260) // Heavily Reduced from 300
+        .frame(width: 240, height: 250) // Width matched to 240, Height reduced
         .oledStyle()
         .background(Color.black)
     }
@@ -158,7 +158,7 @@ struct RAMDetailView: View {
             }
             .padding(.vertical, 10)
         }
-        .frame(width: 226, height: 230) // Heavily Reduced
+        .frame(width: 240, height: 220) // Width matched to 240, Height reduced
         .oledStyle()
         .background(Color.black)
     }
@@ -221,7 +221,7 @@ struct DiskDetailView: View {
             .padding(.horizontal)
             .padding(.bottom, 12)
         }
-        .frame(width: 226, height: 250) // Heavily Reduced
+        .frame(width: 240, height: 240) // Width matched to 240, Height reduced
         .oledStyle()
         .background(Color.black)
     }
@@ -332,7 +332,7 @@ struct NetworkDetailView: View {
             }
             .padding(.vertical, 10)
         }
-        .frame(width: 226, height: 280) // Heavily Reduced
+        .frame(width: 240, height: 270) // Width matched to 240, Height reduced
         .oledStyle()
         .background(Color.black)
     }
