@@ -8,18 +8,29 @@ struct DetailedStatsView: View {
     var body: some View {
         VStack(spacing: 12) {
             // Header
-            HStack {
+            HStack(spacing: 12) {
                 Text("Frictionless")
                     .font(.system(size: 14, weight: .bold))
                 Spacer()
+                
+                // About Icon
+                Button(action: { WindowManager.shared.showAboutWindow() }) {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                
+                // Settings Icon
                 Button(action: { showingSettings.toggle() }) {
                     Image(systemName: "gearshape.fill")
+                        .font(.system(size: 14))
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
                 .popover(isPresented: $showingSettings) {
                     SettingsView()
-                        .frame(width: 400, height: 650) // Expanded +300
+                        .frame(width: 400, height: 650)
                         .background(Color.black)
                 }
             }
@@ -67,7 +78,7 @@ struct DetailedStatsView: View {
                     title: "Net",
                     value: formatBytes(monitor.networkIn + monitor.networkOut) + "/s",
                     subtext: "↓\(formatBytes(monitor.networkIn)) ↑\(formatBytes(monitor.networkOut))",
-                    progress: min((monitor.networkIn + monitor.networkOut) / 1_000_000.0, 1.0) // 1MB/s scale approx
+                    progress: min((monitor.networkIn + monitor.networkOut) / 1_000_000.0, 1.0)
                 ) {
                     WindowManager.shared.openWindow(for: .network, monitor: monitor, settings: settings)
                 }
@@ -75,18 +86,30 @@ struct DetailedStatsView: View {
             .padding(.horizontal, 8)
             
             Divider()
+                .background(Color.gray.opacity(0.3)) // Make divider subtle grey
             
             HStack {
-                Button("Quit") {
+                Button(action: {
                     NSApplication.shared.terminate(nil)
+                }) {
+                    Text("Quit")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 4)
+                        .background(Color.black)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.white, lineWidth: 1)
+                        )
                 }
-                .font(.system(size: 11))
+                .buttonStyle(.plain)
                 .keyboardShortcut("q")
+                
                 Spacer()
             }
             .padding(12)
         }
-        .frame(width: 240) // Fixed width, tight.
         .frame(width: 240) // Fixed width
         .oledStyle()
         .background(Color.black)
@@ -143,8 +166,11 @@ struct CompactCard: View {
                 }
             }
             .padding(8)
-            .padding(8)
-            .background(Color.gray.opacity(0.15)) // Subtle card background for OLED
+            .background(Color.black) // Strict black background
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.gray.opacity(0.4), lineWidth: 1) // Outline instead of fill
+            )
             .cornerRadius(8)
         }
         .buttonStyle(.plain)

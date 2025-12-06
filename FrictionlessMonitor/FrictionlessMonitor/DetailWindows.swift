@@ -82,19 +82,20 @@ struct CPUDetailView: View {
                 )
                 .interpolationMethod(.monotone)
                 .foregroundStyle(Color.blue)
+                .lineStyle(StrokeStyle(lineWidth: 1))
                 
                 AreaMark(
                      x: .value("Time", index),
                      y: .value("Usage", value)
                 )
                 .interpolationMethod(.monotone)
-                .foregroundStyle(Color.blue.opacity(0.2))
+                .foregroundStyle(Color.blue.opacity(0.1))
             }
             .chartYScale(domain: 0...100)
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
             .frame(height: 100)
-            .padding(.horizontal)
+            // Removed horizontal padding for edge-to-edge
             
             Text(String(format: "%.1f%%", monitor.cpuUsage))
                 .font(.system(size: 28, weight: .bold, design: .rounded))
@@ -137,19 +138,20 @@ struct RAMDetailView: View {
                 )
                 .interpolationMethod(.monotone)
                 .foregroundStyle(Color.green)
+                .lineStyle(StrokeStyle(lineWidth: 1))
                 
                 AreaMark(
                      x: .value("Time", index),
                      y: .value("Usage", value)
                 )
                 .interpolationMethod(.monotone)
-                .foregroundStyle(Color.green.opacity(0.2))
+                .foregroundStyle(Color.green.opacity(0.1))
             }
             .chartYScale(domain: 0...100)
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
             .frame(height: 90)
-            .padding(.horizontal)
+            // Removed horizontal padding
             
             VStack(spacing: 0) {
                 Text(String(format: "%.1f GB", usedGB))
@@ -263,6 +265,7 @@ struct NetworkDetailView: View {
                         y: .value("Download", value)
                     )
                     .foregroundStyle(.purple)
+                    .lineStyle(StrokeStyle(lineWidth: 1))
                 }
                 
                 ForEach(Array(monitor.networkOutHistory.enumerated()), id: \.offset) { index, value in
@@ -271,7 +274,7 @@ struct NetworkDetailView: View {
                         y: .value("Upload", value)
                     )
                     .foregroundStyle(.blue)
-                    .lineStyle(StrokeStyle(dash: [5, 5]))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
                 }
             }
             // Log Scale for Network: Clamp min 1 to avoid log(0) error
@@ -279,7 +282,7 @@ struct NetworkDetailView: View {
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
             .frame(height: 90)
-            .padding(.horizontal)
+            // Removed horizontal padding
             
             // Speeds
             HStack(spacing: 20) {

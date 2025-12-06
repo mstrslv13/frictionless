@@ -160,7 +160,7 @@ class MenuBarManager: NSObject {
         
         if let button = statusItems.first?.button {
             button.image = NSImage(systemSymbolName: config.icon, accessibilityDescription: nil)
-            button.title = " " + config.text(monitor)
+            setMonospacedTitle(button, text: " " + config.text(monitor))
             button.imagePosition = .imageLeft
         }
     }
@@ -188,7 +188,7 @@ class MenuBarManager: NSObject {
                  let key = enabledTypes[safeIndex]
                  if let config = configurations[key], let button = statusItems.first?.button {
                       button.image = NSImage(systemSymbolName: config.icon, accessibilityDescription: nil)
-                      button.title = " " + config.text(monitor)
+                      setMonospacedTitle(button, text: " " + config.text(monitor))
                  }
             }
             
@@ -200,35 +200,35 @@ class MenuBarManager: NSObject {
                 switch type {
                 case .cpu:
                     button.image = NSImage(systemSymbolName: "cpu", accessibilityDescription: "CPU")
-                    button.title = String(format: " %.0f%%", monitor.cpuUsage)
+                    setMonospacedTitle(button, text: String(format: " %.0f%%", monitor.cpuUsage))
                     
                 case .ram:
                     button.image = NSImage(systemSymbolName: "memorychip", accessibilityDescription: "RAM")
                     switch settings.ramDisplayMode {
                     case .percent:
-                        button.title = String(format: " %.0f%%", monitor.memoryUsage)
+                        setMonospacedTitle(button, text: String(format: " %.0f%%", monitor.memoryUsage))
                     case .used:
-                        button.title = " " + formatBytes(Double(monitor.memoryUsedBytes))
+                        setMonospacedTitle(button, text: " " + formatBytes(Double(monitor.memoryUsedBytes)))
                     case .free:
                         let total = ProcessInfo.processInfo.physicalMemory
                         let free = (total > monitor.memoryUsedBytes) ? (total - monitor.memoryUsedBytes) : 0
-                        button.title = " " + formatBytes(Double(free))
+                        setMonospacedTitle(button, text: " " + formatBytes(Double(free)))
                     }
                     
                 case .disk:
                     button.image = NSImage(systemSymbolName: "internaldrive", accessibilityDescription: "Disk")
                     switch settings.diskDisplayMode {
                     case .percent:
-                        button.title = String(format: " %.0f%%", monitor.diskUsage)
+                        setMonospacedTitle(button, text: String(format: " %.0f%%", monitor.diskUsage))
                     case .used:
-                        button.title = " " + formatBytes(Double(monitor.diskUsedBytes))
+                        setMonospacedTitle(button, text: " " + formatBytes(Double(monitor.diskUsedBytes)))
                     case .free:
-                        button.title = " " + formatBytes(Double(monitor.diskFreeBytes))
+                        setMonospacedTitle(button, text: " " + formatBytes(Double(monitor.diskFreeBytes)))
                     }
                     
                 case .net:
                     button.image = NSImage(systemSymbolName: "network", accessibilityDescription: "Net")
-                    button.title = " " + formatBytes(monitor.networkIn + monitor.networkOut) + "/s"
+                    setMonospacedTitle(button, text: " " + formatBytes(monitor.networkIn + monitor.networkOut) + "/s")
                     
                 case .main: break
                 }
@@ -306,5 +306,11 @@ class MenuBarManager: NSObject {
         p.behavior = .transient
         p.contentViewController = NSHostingController(rootView: content)
         return p
+    }
+    // Helper to prevent jitter using monospaced font
+    private func setMonospacedTitle(_ button: NSStatusBarButton, text: String) {
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
+        button.attributedTitle = NSAttributedString(string: text, attributes: attributes)
     }
 }
