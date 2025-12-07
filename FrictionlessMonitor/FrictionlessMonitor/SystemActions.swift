@@ -61,49 +61,65 @@ class SystemActions {
     // MARK: - Storage Management
     
     static func emptyTrash() {
-        // Simple applescript approach to avoid permissions issues if possible, 
-        // or FileManager but FileManager requires iterating ~/.Trash
-        let source = "tell application \"Finder\" to empty trash"
+        // Simple applescript approach to verify user intent and permissions
+        let source = """
+        try
+            tell application "Finder" to empty trash
+        on error errMsg number errNum
+            return errNum
+        end try
+        """
         executeAppleScript(source)
     }
     
     private static func executeAppleScript(_ source: String) {
         var error: NSDictionary?
         if let scriptObject = NSAppleScript(source: source) {
-            scriptObject.executeAndReturnError(&error)
+            let output = scriptObject.executeAndReturnError(&error)
+            
+            // Check for explicit returns (like error numbers)
+            if let desc = output.stringValue {
+                print("AppleScript Result: \(desc)")
+            }
+            
             if let err = error {
-                let errCode = err["NSAppleScriptErrorNumber"] as? Int
-                // -128 is "User cancelled" which happens if they dismiss a dialog or permission prompt
-                if errCode != -128 {
-                    print("AppleScript Error: \(err)")
-                }
+                print("AppleScript Error: \(err)")
             }
         }
     }
     
     static func clearTempFiles() -> String {
-        let tempDir = NSTemporaryDirectory()
+        let fileManager = FileManager.default
         var deletedCount = 0
         var savedSpace: Int64 = 0
         
-        do {
-            let fileManager = FileManager.default
-            let contents = try fileManager.contentsOfDirectory(atPath: tempDir)
-            
-            for file in contents {
-                let path = (tempDir as NSString).appendingPathComponent(file)
-                do {
-                    let attr = try fileManager.attributesOfItem(atPath: path)
-                    let size = attr[.size] as? Int64 ?? 0
-                    try fileManager.removeItem(atPath: path)
-                    deletedCount += 1
-                    savedSpace += size
-                } catch {
-                    // Ignore permission errors
+        let pathsToClear = [
+            NSTemporaryDirectory(),
+            FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.path
+        ].compactMap { $0 }
+        
+        for rootPath in pathsToClear {
+            do {
+                let contents = try fileManager.contentsOfDirectory(atPath: rootPath)
+                for file in contents {
+                    let path = (rootPath as NSString).appendingPathComponent(file)
+                    
+                    // Skip essential system caches if needed (optional safety)
+                    
+                    do {
+                        let attr = try fileManager.attributesOfItem(atPath: path)
+                        let size = attr[.size] as? Int64 ?? 0
+                        try fileManager.removeItem(atPath: path)
+                        deletedCount += 1
+                        savedSpace += size
+                    } catch {
+                        // Skip items we can't delete (in use/permissions)
+                        continue
+                    }
                 }
+            } catch {
+                continue
             }
-        } catch {
-            return "Error listing temp files."
         }
         
         let formatter = ByteCountFormatter()

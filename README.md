@@ -10,6 +10,13 @@ Designed exclusively for macOS, Frictionless replaces cluttered, noisy dashboard
 
 - **True OLED Black**: The first system monitor designed to look stunning on modern displays. No greys, just absolute black.
 - **Zero-Click Info**: See your CPU, RAM, Disk, and Network stats instantly in your Menu Bar.
+- **Beautiful Real-Time Charts**: 
+  - CPU: Stacked area chart showing System (red) and User (blue) usage with live legend
+  - Network: Activity visualization with download (purple) and upload (orange) streams
+  - All charts feature OLED black backgrounds and smooth animations
+- **Intelligent Color Coding**: 
+  - Disk space uses traffic light system (green/yellow/red) based on available capacity
+  - All metrics color-coded for instant status recognition
 - **Frictionless Detail**: Click any stat for a beautiful, distraction-free popover with historical graphs and deep insights.
 - **Detachable Windows**: Pin specific monitors (like CPU or Network) to your desktop for permanent visibility.
 - **Unified Icon Mode**: Save menu bar space by consolidating all stats into one icon that rotates intelligently.

@@ -65,44 +65,100 @@ struct CPUDetailView: View {
     @ObservedObject var monitor: SystemMonitor
     @State private var showProcesses = false
     
+    // Data structure for proper stacking
+    struct CPUData: Identifiable {
+        let id = UUID()
+        let index: Int
+        let value: Double
+        let type: String
+    }
+    
+    var chartData: [CPUData] {
+        var data: [CPUData] = []
+        
+        // System (bottom layer)
+        for (index, value) in monitor.cpuSystemHistory.enumerated() {
+            data.append(CPUData(index: index, value: value, type: "System"))
+        }
+        
+        // User (top layer)
+        for (index, value) in monitor.cpuUserHistory.enumerated() {
+            data.append(CPUData(index: index, value: value, type: "User"))
+        }
+        
+        return data
+    }
+    
     var body: some View {
-        VStack(spacing: 0) { // Tight spacing
-            DetailHeader(title: "CPU")
+        VStack(spacing: 8) {
+            DetailHeader(title: "Processor")
             
-            Text("\(monitor.cpuModel) \(monitor.physicalCores) Cores")
-                .font(.subheadline)
-                .multilineTextAlignment(.center)
-                .padding(.top, 10)
-                .padding(.bottom, 4)
+            // Title above chart
+            Text("CPU Load")
+                .font(.system(size: 14, weight: .bold))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
             
-            Chart(Array(monitor.cpuHistory.enumerated()), id: \.offset) { index, value in
-                LineMark(
-                    x: .value("Time", index),
-                    y: .value("Usage", value)
-                )
-                .interpolationMethod(.monotone)
-                .foregroundStyle(Color.blue)
-                .lineStyle(StrokeStyle(lineWidth: 1.5)) // Slightly thicker line
-                
+            // Chart with OLED black background
+            Chart(chartData) { item in
                 AreaMark(
-                     x: .value("Time", index),
-                     y: .value("Usage", value)
+                    x: .value("Time", item.index),
+                    y: .value("Usage", item.value)
                 )
+                .foregroundStyle(by: .value("Type", item.type))
                 .interpolationMethod(.monotone)
-                .foregroundStyle(Color.blue.opacity(0.15)) // Better fill
             }
+            .chartForegroundStyleScale([
+                "System": .red,
+                "User": .blue
+            ])
             .chartYScale(domain: 0...100)
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
-            .frame(height: 80) // Compact chart
+            .chartLegend(.hidden)
+            .frame(height: 80)
+            .background(Color.black)
+            .cornerRadius(4)
+            .padding(.horizontal, 12)
             
-            Text(String(format: "%.1f%%", monitor.cpuUsage))
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .padding(.vertical, 8)
+            // Legend below chart
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Circle().fill(Color.red).frame(width: 8, height: 8)
+                    Text("System:")
+                        .font(.system(size: 11))
+                    Spacer()
+                    Text(String(format: "%.1f%%", monitor.cpuSystem))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.red)
+                }
+                HStack {
+                    Circle().fill(Color.blue).frame(width: 8, height: 8)
+                    Text("User:")
+                        .font(.system(size: 11))
+                    Spacer()
+                    Text(String(format: "%.1f%%", monitor.cpuUser))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.blue)
+                }
+                HStack {
+                    Circle().fill(Color.gray).frame(width: 8, height: 8)
+                    Text("Idle:")
+                        .font(.system(size: 11))
+                    Spacer()
+                    Text(String(format: "%.1f%%", monitor.cpuIdle))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.gray)
+                }
+            }
+            .padding(.horizontal, 12)
             
-            Button("Manage Processes") {
+            Spacer()
+            
+            Button("Processes") {
                 showProcesses.toggle()
             }
+            .controlSize(.small)
             .popover(isPresented: $showProcesses) {
                 ProcessListView()
                     .frame(width: 300, height: 400)
@@ -110,7 +166,7 @@ struct CPUDetailView: View {
             }
             .padding(.bottom, 12)
         }
-        .frame(width: 240, height: 250) // Width matched to 240, Height reduced
+        .frame(width: 240, height: 240)
         .oledStyle()
         .background(Color.black)
     }
@@ -149,14 +205,22 @@ struct RAMDetailView: View {
             .frame(height: 80)
             .padding(.top, 10)
             
-            VStack(spacing: 2) {
-                Text(String(format: "%.1f GB", usedGB))
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+            VStack(spacing: 4) {
+                Text(String(format: "%.1f GB Used", usedGB))
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundColor(.green)
-                Text("/ \(String(format: "%.0f", totalGB)) GB")
-                    .foregroundColor(.secondary)
+                
+                HStack(spacing: 4) {
+                     Text("of \(String(format: "%.0f", totalGB)) GB Total")
+                         .foregroundColor(.secondary)
+                     Text("•")
+                         .foregroundColor(.gray.opacity(0.5))
+                     Text(String(format: "%.1f GB Free", totalGB - usedGB))
+                         .foregroundColor(.secondary)
+                }
+                .font(.caption)
             }
-            .padding(.vertical, 10)
+            .padding(.vertical, 6)
         }
         .frame(width: 240, height: 220) // Width matched to 240, Height reduced
         .oledStyle()
@@ -169,6 +233,22 @@ struct DiskDetailView: View {
     @ObservedObject var monitor: SystemMonitor
     @ObservedObject var settings: SettingsManager
     
+    // Calculate free percentage for color thresholds
+    var freePercentage: Double {
+        guard monitor.diskTotalBytes > 0 else { return 0 }
+        return (Double(monitor.diskFreeBytes) / Double(monitor.diskTotalBytes)) * 100.0
+    }
+    
+    var thresholdColor: Color {
+        if freePercentage <= 10.0 {
+            return .red
+        } else if freePercentage <= 25.0 {
+            return .yellow
+        } else {
+            return .green
+        }
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             DetailHeader(title: "Storage")
@@ -177,12 +257,12 @@ struct DiskDetailView: View {
                 Circle()
                     .stroke(lineWidth: 12)
                     .opacity(0.2)
-                    .foregroundColor(.orange)
+                    .foregroundColor(thresholdColor)
                 
                 Circle()
                     .trim(from: 0.0, to: CGFloat(min(monitor.diskUsage / 100.0, 1.0)))
                     .stroke(style: StrokeStyle(lineWidth: 12, lineCap: .round, lineJoin: .round))
-                    .foregroundColor(.orange)
+                    .foregroundColor(thresholdColor)
                     .rotationEffect(Angle(degrees: 270.0))
                     .animation(.linear, value: monitor.diskUsage)
                 
@@ -192,46 +272,35 @@ struct DiskDetailView: View {
                         .fontWeight(.bold)
                 }
             }
-            .frame(width: 90, height: 90) // Slightly smaller
+            .frame(width: 90, height: 90)
             .padding(.vertical, 10)
             
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Free: " + getFreeSpace())
-                    .fontWeight(.medium)
-                    .frame(maxWidth: .infinity, alignment: .center)
+            VStack(spacing: 4) {
+                // Prominent: Free space in threshold color
+                Text("\(formatBytes(Double(monitor.diskFreeBytes))) free")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundColor(thresholdColor)
                 
-                Divider()
-                    .background(Color.gray.opacity(0.3))
-                
-                HStack {
-                    Button("Clean Up") {
-                        SystemActions.emptyTrash()
-                        _ = SystemActions.clearTempFiles()
-                    }
-                    .help("Empty Trash & Clear Temp")
-                    
-                    Spacer()
-                    
-                    Button("Visualizer") {
-                        SystemActions.openExternalApp(path: settings.externalStorageAppPath)
-                    }
-                }
-                .controlSize(.small)
+                // Below: Used / Total
+                Text("\(formatBytes(Double(monitor.diskUsedBytes))) used / \(formatBytes(Double(monitor.diskTotalBytes))) total")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-            .padding(.horizontal)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            
+            Spacer()
+            
+            // Optional: Visualizer button only (Clean Up removed)
+            Button("Visualizer") {
+                SystemActions.openExternalApp(path: settings.externalStorageAppPath)
+            }
+            .controlSize(.small)
             .padding(.bottom, 12)
         }
-        .frame(width: 240, height: 240) // Width matched to 240, Height reduced
+        .frame(width: 240, height: 240)
         .oledStyle()
         .background(Color.black)
-    }
-    
-    func getFreeSpace() -> String {
-         guard let attrs = try? FileManager.default.attributesOfFileSystem(forPath: "/"),
-               let free = attrs[.systemFreeSize] as? Int64 else {
-             return "?"
-         }
-         return formatBytes(Double(free))
     }
 }
 
@@ -239,104 +308,108 @@ struct DiskDetailView: View {
 struct NetworkDetailView: View {
     @ObservedObject var monitor: SystemMonitor
     
+    // Data structure for proper stacking (same pattern as CPU)
+    struct NetworkData: Identifiable {
+        let id = UUID()
+        let index: Int
+        let value: Double
+        let type: String
+    }
+    
+    var chartData: [NetworkData] {
+        var data: [NetworkData] = []
+        
+        // Download (bottom layer)
+        for (index, value) in monitor.networkInHistory.enumerated() {
+            data.append(NetworkData(index: index, value: value, type: "Download"))
+        }
+        
+        // Upload (top layer)
+        for (index, value) in monitor.networkOutHistory.enumerated() {
+            data.append(NetworkData(index: index, value: value, type: "Upload"))
+        }
+        
+        return data
+    }
+    
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 8) {
             DetailHeader(title: "Network")
             
             Text(monitor.localIP)
                 .font(.system(.body, design: .monospaced))
                 .foregroundColor(.secondary)
-                .padding(.top, 4)
-                .padding(.bottom, 8)
             
-            Chart {
-                ForEach(Array(monitor.networkInHistory.enumerated()), id: \.offset) { index, value in
-                    let safeValue = value.isNaN || value.isInfinite ? 0.1 : max(0.1, value)
-                    LineMark(
-                        x: .value("Time", index),
-                        y: .value("Download", safeValue)
-                    )
-                    .foregroundStyle(Color(red: 0, green: 0.9, blue: 1)) // Bright Cyan
-                    .lineStyle(StrokeStyle(lineWidth: 1.5))
-                    
-                    AreaMark(
-                         x: .value("Time", index),
-                         y: .value("Download", safeValue)
-                    )
-                    .foregroundStyle(Color(red: 0, green: 0.9, blue: 1).opacity(0.2))
-                }
-                
-                ForEach(Array(monitor.networkOutHistory.enumerated()), id: \.offset) { index, value in
-                    let safeValue = value.isNaN || value.isInfinite ? 0.1 : max(0.1, value)
-                    LineMark(
-                        x: .value("Time", index),
-                        y: .value("Upload", safeValue)
-                    )
-                    .foregroundStyle(.orange)
-                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
-                    
-                    AreaMark(
-                         x: .value("Time", index),
-                         y: .value("Upload", safeValue)
-                    )
-                    .foregroundStyle(.orange.opacity(0.1))
-                }
+            // Network Chart
+            Chart(chartData) { item in
+                AreaMark(
+                    x: .value("Time", item.index),
+                    y: .value("Speed", item.value)
+                )
+                .foregroundStyle(by: .value("Type", item.type))
+                .interpolationMethod(.monotone)
             }
-            // Log Scale: Start at 0.1 to allow "0" values (clamped to 0.1) to sit at bottom without clip
-            .chartYScale(domain: 0.1...max(1024, (monitor.networkInHistory.max() ?? 0) * 1.5), type: .log)
+            .chartForegroundStyleScale([
+                "Download": .purple,
+                "Upload": .orange
+            ])
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
-            .frame(height: 80) // Reduced height
+            .chartLegend(.hidden)
+            .frame(height: 80)
+            .background(Color.black)
+            .cornerRadius(4)
+            .padding(.horizontal, 12)
             
-            // Speeds
-            HStack(spacing: 16) {
-                VStack(spacing: 2) {
-                    Text("Download")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+            // Legend with speeds
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Circle().fill(Color.purple).frame(width: 8, height: 8)
+                    Text("Download:")
+                        .font(.system(size: 11))
+                    Spacer()
                     Text(formatBytes(monitor.networkIn) + "/s")
-                        .fontWeight(.semibold)
-                        .foregroundColor(Color(red: 0, green: 0.9, blue: 1)) // Bright Cyan
-                        .frame(minWidth: 60)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.purple)
                 }
-                
-                VStack(spacing: 2) {
-                    Text("Upload")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                HStack {
+                    Circle().fill(Color.orange).frame(width: 8, height: 8)
+                    Text("Upload:")
+                        .font(.system(size: 11))
+                    Spacer()
                     Text(formatBytes(monitor.networkOut) + "/s")
-                        .fontWeight(.semibold)
+                        .font(.system(size: 11, design: .monospaced))
                         .foregroundColor(.orange)
-                        .frame(minWidth: 60)
                 }
             }
-            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
             
             Divider().background(Color.gray.opacity(0.3)).padding(.horizontal, 20)
             
             // Session Totals
-            HStack(spacing: 20) {
-                 VStack(spacing: 2) {
+            HStack(spacing: 24) {
+                 VStack(spacing: 4) {
                      Text("Total In")
-                         .font(.caption2)
+                         .font(.caption)
                          .foregroundColor(.secondary)
                      Text(formatBytes(Double(monitor.sessionNetworkIn)))
-                         .font(.caption)
+                         .font(.system(size: 14, weight: .medium))
                          .foregroundColor(.white)
                  }
                  
-                 VStack(spacing: 2) {
+                 VStack(spacing: 4) {
                      Text("Total Out")
-                         .font(.caption2)
+                         .font(.caption)
                          .foregroundColor(.secondary)
                      Text(formatBytes(Double(monitor.sessionNetworkOut)))
-                         .font(.caption)
+                         .font(.system(size: 14, weight: .medium))
                          .foregroundColor(.white)
                  }
             }
-            .padding(.vertical, 10)
+            
+            Spacer()
         }
-        .frame(width: 240, height: 270) // Width matched to 240, Height reduced
+        .frame(width: 240, height: 240)
         .oledStyle()
         .background(Color.black)
     }

@@ -31,7 +31,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if app != currentApp && app.executableURL == currentApp.executableURL {
                 print("Another instance is already running. Terminating.")
                 // Activate the existing instance?
-                app.activate(options: .activateIgnoringOtherApps)
                 NSApp.terminate(nil)
                 return
             }

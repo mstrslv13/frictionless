@@ -66,7 +66,7 @@ struct DetailedStatsView: View {
                     color: .orange,
                     title: "Disk",
                     value: String(format: "%.0f%%", monitor.diskUsage),
-                    subtext: "Free: \(getFreeSpace())",
+                    subtext: "Free: \(formatBytes(Double(monitor.diskFreeBytes)))",
                     progress: monitor.diskUsage / 100.0
                 ) {
                     WindowManager.shared.openWindow(for: .disk, monitor: monitor, settings: settings)
@@ -114,15 +114,9 @@ struct DetailedStatsView: View {
         .oledStyle()
         .background(Color.black)
     }
-    
-    func getFreeSpace() -> String {
-        guard let attrs = try? FileManager.default.attributesOfFileSystem(forPath: "/"),
-              let free = attrs[.systemFreeSize] as? Int64 else {
-            return "?"
-        }
-        return formatBytes(Double(free))
-    }
 }
+
+
 
 struct CompactCard: View {
     let icon: String
