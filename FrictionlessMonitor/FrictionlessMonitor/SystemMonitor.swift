@@ -298,93 +298,45 @@ class SystemMonitor: ObservableObject {
     // Let's stick to parsing `iostat -Id` (cumulative)
     
     private func updateDiskIO() {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/iostat")
-        process.arguments = ["-Id", "disk0"] // Getting stats for main disk
-        
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        
-        do {
-            try process.run()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8) {
-                parseIOStat(output)
-            }
-        } catch {
-            // Error
-        }
-    }
-    
-    private func parseIOStat(_ output: String) {
-        // iostat -Id disk0 output format:
-        //      disk0 
-        // KB/t xfrs   MB 
-        // 25.10 12345 300.55 
-        
-        let lines = output.split(separator: "\n")
-        if lines.count >= 3 {
-            let parts = lines[2].split(separator: " ", omittingEmptySubsequences: true)
-            // parts[2] is MB Read (cumulative? No, iostat -I gives stats since boot)
-            // actually on Mac `iostat -Id`
-            // disk0
-            // KB/t xfrs MB
-            // 23.45 152345 3456.78
-            // The 3rd column is MB total transferred? 
-            // Wait, iostat docs: -I display total statistics for a given time period (since boot if no interval).
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
             
-            if parts.count >= 3, let mbTotal = Double(parts[2]) {
-                // This is total MB transferred (Read+Write mixed? No, usually it's mixed or we need more cols)
-                // standard `iostat -Id` on mac:
-                // disk0
-                // KB/t  xfrs   MB
-                // 34.12 12344  456.12
-                
-                // This is inadequate for Read vs Write.
-                // Let's use `top -l 1 -n 0` ?
-                // "Disks: 12345/123G read, 23456/234G written."
-                // This is perfect.
-                
-                // Let's switch to parsing top output for globally accumulated disk stats.
-                // It's heavy but reliable for totals.
-                // Or better, let's just interpret the requirement as visual activity for now if I can't get low level IOKit.
-                // But the user requested specifics.
-            }
-        }
-        
-        // Revised Strategy: Use `top -l 1 -n 0` | grep "Disks:"
-        // Output: Disks: 45678/123G read, 56789/234G written.
-        
-        let topProcess = Process()
-        topProcess.executableURL = URL(fileURLWithPath: "/usr/bin/top")
-        topProcess.arguments = ["-l", "1", "-n", "0"]
-        
-        let topPipe = Pipe()
-        topProcess.standardOutput = topPipe
-        
-        do {
-            try topProcess.run()
-            let topData = topPipe.fileHandleForReading.readDataToEndOfFile()
-            if let topOutput = String(data: topData, encoding: .utf8) {
-                let lines = topOutput.split(separator: "\n")
-                if let diskLine = lines.first(where: { $0.hasPrefix("Disks:") }) {
-                    // Format: Disks: 5495574/204G read, 4280590/190G written.
-                    // The first number is operations?, second is size.
-                    // We want the Size.
-                    
-                    let parts = diskLine.split(separator: ",")
-                    if parts.count == 2 {
-                        let readPart = parts[0] // Disks: 5495574/204G read
-                        let writePart = parts[1] // 4280590/190G written.
+            // Revised Strategy: Use `top -l 1 -n 0` | grep "Disks:"
+            // Output: Disks: 45678/123G read, 56789/234G written.
+            
+            let topProcess = Process()
+            topProcess.executableURL = URL(fileURLWithPath: "/usr/bin/top")
+            topProcess.arguments = ["-l", "1", "-n", "0"]
+            
+            let topPipe = Pipe()
+            topProcess.standardOutput = topPipe
+            
+            do {
+                try topProcess.run()
+                let topData = topPipe.fileHandleForReading.readDataToEndOfFile()
+                if let topOutput = String(data: topData, encoding: .utf8) {
+                    let lines = topOutput.split(separator: "\n")
+                    if let diskLine = lines.first(where: { $0.hasPrefix("Disks:") }) {
+                        // Format: Disks: 5495574/204G read, 4280590/190G written.
                         
-                        let readBytes = parseTopDiskSize(String(readPart))
-                        let writeBytes = parseTopDiskSize(String(writePart))
-                        
-                        updateDiskSpeed(newRead: readBytes, newWrite: writeBytes)
+                        let parts = diskLine.split(separator: ",")
+                        if parts.count == 2 {
+                            let readPart = parts[0] // Disks: 5495574/204G read
+                            let writePart = parts[1] // 4280590/190G written.
+                            
+                            let readBytes = self.parseTopDiskSize(String(readPart))
+                            let writeBytes = self.parseTopDiskSize(String(writePart))
+                            
+                            DispatchQueue.main.async {
+                                self.updateDiskSpeed(newRead: readBytes, newWrite: writeBytes)
+                            }
+                        }
                     }
                 }
+            } catch {
+                print("Error updating Disk I/O: \(error)")
             }
-        } catch { }
+        }
     }
     
     private func parseTopDiskSize(_ raw: String) -> Int64 {
