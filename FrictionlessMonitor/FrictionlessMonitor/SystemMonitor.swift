@@ -298,45 +298,15 @@ class SystemMonitor: ObservableObject {
     // Let's stick to parsing `iostat -Id` (cumulative)
     
     private func updateDiskIO() {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-            
-            // Revised Strategy: Use `top -l 1 -n 0` | grep "Disks:"
-            // Output: Disks: 45678/123G read, 56789/234G written.
-            
-            let topProcess = Process()
-            topProcess.executableURL = URL(fileURLWithPath: "/usr/bin/top")
-            topProcess.arguments = ["-l", "1", "-n", "0"]
-            
-            let topPipe = Pipe()
-            topProcess.standardOutput = topPipe
-            
-            do {
-                try topProcess.run()
-                let topData = topPipe.fileHandleForReading.readDataToEndOfFile()
-                if let topOutput = String(data: topData, encoding: .utf8) {
-                    let lines = topOutput.split(separator: "\n")
-                    if let diskLine = lines.first(where: { $0.hasPrefix("Disks:") }) {
-                        // Format: Disks: 5495574/204G read, 4280590/190G written.
-                        
-                        let parts = diskLine.split(separator: ",")
-                        if parts.count == 2 {
-                            let readPart = parts[0] // Disks: 5495574/204G read
-                            let writePart = parts[1] // 4280590/190G written.
-                            
-                            let readBytes = self.parseTopDiskSize(String(readPart))
-                            let writeBytes = self.parseTopDiskSize(String(writePart))
-                            
-                            DispatchQueue.main.async {
-                                self.updateDiskSpeed(newRead: readBytes, newWrite: writeBytes)
-                            }
-                        }
-                    }
-                }
-            } catch {
-                print("Error updating Disk I/O: \(error)")
-            }
-        }
+        // App Store Sandbox Limitation:
+        // We cannot run `top` or `iostat` via Process() to get disk speed stats.
+        // This requires entitlements that are not available to general apps.
+        //
+        // To comply with App Store guidelines, we are disabling the "Disk Speed" feature.
+        // The "Disk Space" (Used/Free) feature still works perfectly via URLResourceValues.
+        
+        self.diskReadSpeed = 0.0
+        self.diskWriteSpeed = 0.0
     }
     
     private func parseTopDiskSize(_ raw: String) -> Int64 {
