@@ -91,8 +91,13 @@ class SystemMonitor: ObservableObject {
         if let prev = previousNetworkStats, let lastTime = lastCheckTime {
             let timeDiff = Date().timeIntervalSince(lastTime)
             if timeDiff > 0 {
-                let inSpeed = Double(currentNetwork.inBytes - prev.inBytes) / timeDiff
-                let outSpeed = Double(currentNetwork.outBytes - prev.outBytes) / timeDiff
+                // Prevent UInt64 underflow crash if interfaces reset (current < prev)
+                // This happens if Wi-Fi toggles or adapters change.
+                let inBytesDiff = currentNetwork.inBytes >= prev.inBytes ? currentNetwork.inBytes - prev.inBytes : 0
+                let outBytesDiff = currentNetwork.outBytes >= prev.outBytes ? currentNetwork.outBytes - prev.outBytes : 0
+                
+                let inSpeed = Double(inBytesDiff) / timeDiff
+                let outSpeed = Double(outBytesDiff) / timeDiff
                 
                 self.networkIn = inSpeed
                 self.networkOut = outSpeed
@@ -103,8 +108,9 @@ class SystemMonitor: ObservableObject {
             
             // Update session totals
             if let initial = initialNetworkStats {
-                 self.sessionNetworkIn = currentNetwork.inBytes - initial.inBytes
-                 self.sessionNetworkOut = currentNetwork.outBytes - initial.outBytes
+                 // Safe subtraction for session totals too
+                 self.sessionNetworkIn = currentNetwork.inBytes >= initial.inBytes ? currentNetwork.inBytes - initial.inBytes : 0
+                 self.sessionNetworkOut = currentNetwork.outBytes >= initial.outBytes ? currentNetwork.outBytes - initial.outBytes : 0
             } else {
                 self.initialNetworkStats = currentNetwork
             }
