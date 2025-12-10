@@ -14,13 +14,7 @@ class SystemMonitor: ObservableObject {
     @Published var cpuSystem: Double = 0.0
     @Published var cpuIdle: Double = 0.0
     
-    // Disk I/O
-    @Published var diskReadTotal: Int64 = 0
-    @Published var diskWriteTotal: Int64 = 0
-    @Published var diskReadSpeed: Double = 0.0
-    @Published var diskWriteSpeed: Double = 0.0
-    @Published var diskReadHistory: [Double] = Array(repeating: 0.0, count: 60)
-    @Published var diskWriteHistory: [Double] = Array(repeating: 0.0, count: 60)
+
     
     // Raw Values for Display Modes
     @Published var memoryUsedBytes: UInt64 = 0
@@ -47,6 +41,7 @@ class SystemMonitor: ObservableObject {
     @Published var networkOutHistory: [Double] = Array(repeating: 0.0, count: 60)
     
     private var timer: Timer?
+    private let monitorQueue = DispatchQueue(label: "com.mstrslv.frictionless.monitor", qos: .userInitiated)
     private var previousNetworkStats: (inBytes: UInt64, outBytes: UInt64)?
     private var initialNetworkStats: (inBytes: UInt64, outBytes: UInt64)?
     private var lastCheckTime: Date?
@@ -60,9 +55,12 @@ class SystemMonitor: ObservableObject {
     }
     
     func startMonitoring() {
-        // Update every 1 second
+        // Timer fires on Main, but we offload work to background queue immediately
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            self?.updateStats()
+            guard let self = self else { return }
+            self.monitorQueue.async {
+                self.updateStats()
+            }
         }
     }
     
@@ -72,22 +70,16 @@ class SystemMonitor: ObservableObject {
     }
 
     private func updateStats() {
-        let cpu = getCPUUsage() // Updates detailed props internaly
-        let ram = getMemoryUsage()
-        let disk = getDiskUsage()
-        updateDiskIO()
-        
-        self.cpuUsage = self.cpuUser + self.cpuSystem // Total usage
-        self.memoryUsage = ram
-        self.diskUsage = disk
-        
-        // Update History
-        updateHistory(&cpuHistory, newValue: self.cpuUsage)
-        updateHistory(&cpuUserHistory, newValue: self.cpuUser)
-        updateHistory(&cpuSystemHistory, newValue: self.cpuSystem)
-        updateHistory(&ramHistory, newValue: ram)
+        // BACKGROUND THREAD: Perform heavy system calls here
+        let cpuDetails = getCPUUsage() // Returns (user, system, idle)
+        let ramDetails = getMemoryUsage() // Returns (usagePercent, usedBytes)
+        let diskDetails = getDiskUsage() // Returns (usagePercent, usedBytes, freeBytes, totalBytes)
         
         let currentNetwork = getNetworkUsage()
+        var netIn: Double = 0
+        var netOut: Double = 0
+        
+        // Network Logic
         if let prev = previousNetworkStats, let lastTime = lastCheckTime {
             let timeDiff = Date().timeIntervalSince(lastTime)
             if timeDiff > 0 {
@@ -96,31 +88,72 @@ class SystemMonitor: ObservableObject {
                 let inBytesDiff = currentNetwork.inBytes >= prev.inBytes ? currentNetwork.inBytes - prev.inBytes : 0
                 let outBytesDiff = currentNetwork.outBytes >= prev.outBytes ? currentNetwork.outBytes - prev.outBytes : 0
                 
-                let inSpeed = Double(inBytesDiff) / timeDiff
-                let outSpeed = Double(outBytesDiff) / timeDiff
-                
-                self.networkIn = inSpeed
-                self.networkOut = outSpeed
-                
-                updateHistory(&networkInHistory, newValue: inSpeed)
-                updateHistory(&networkOutHistory, newValue: outSpeed)
-            }
-            
-            // Update session totals
-            if let initial = initialNetworkStats {
-                 // Safe subtraction for session totals too
-                 self.sessionNetworkIn = currentNetwork.inBytes >= initial.inBytes ? currentNetwork.inBytes - initial.inBytes : 0
-                 self.sessionNetworkOut = currentNetwork.outBytes >= initial.outBytes ? currentNetwork.outBytes - initial.outBytes : 0
-            } else {
-                self.initialNetworkStats = currentNetwork
+                netIn = Double(inBytesDiff) / timeDiff
+                netOut = Double(outBytesDiff) / timeDiff
             }
         }
+        
+        // Update session totals logic (simplified for background calc)
+        var sessIn: UInt64 = 0
+        var sessOut: UInt64 = 0
+        let isInitialNetworkStatsSet = initialNetworkStats == nil
+        
+        if let initial = initialNetworkStats {
+             sessIn = currentNetwork.inBytes >= initial.inBytes ? currentNetwork.inBytes - initial.inBytes : 0
+             sessOut = currentNetwork.outBytes >= initial.outBytes ? currentNetwork.outBytes - initial.outBytes : 0
+        }
+
+        // Capture values to capture in closure
+        let finalNetworkIn = netIn
+        let finalNetworkOut = netOut
+        let finalSessIn = sessIn
+        let finalSessOut = sessOut
+        let finalCurrentNetwork = currentNetwork
+        
+        // UI UPDATES: Dispatch back to Main
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            self.cpuUser = cpuDetails.user
+            self.cpuSystem = cpuDetails.system
+            self.cpuIdle = cpuDetails.idle
+            self.cpuUsage = cpuDetails.user + cpuDetails.system
+            
+            self.memoryUsage = ramDetails.usagePercent
+            self.memoryUsedBytes = ramDetails.usedBytes
+            
+            self.diskUsage = diskDetails.usagePercent
+            self.diskUsedBytes = diskDetails.usedBytes
+            self.diskFreeBytes = diskDetails.freeBytes
+            self.diskTotalBytes = diskDetails.totalBytes
+            
+            self.networkIn = finalNetworkIn
+            self.networkOut = finalNetworkOut
+            
+            // History
+            self.updateHistory(&self.cpuHistory, newValue: self.cpuUsage)
+            self.updateHistory(&self.cpuUserHistory, newValue: self.cpuUser)
+            self.updateHistory(&self.cpuSystemHistory, newValue: self.cpuSystem)
+            self.updateHistory(&self.ramHistory, newValue: ramDetails.usagePercent)
+            self.updateHistory(&self.networkInHistory, newValue: finalNetworkIn)
+            self.updateHistory(&self.networkOutHistory, newValue: finalNetworkOut)
+            
+            // Session
+             if isInitialNetworkStatsSet {
+                self.initialNetworkStats = finalCurrentNetwork
+            } else {
+                self.sessionNetworkIn = finalSessIn
+                self.sessionNetworkOut = finalSessOut
+            }
+        }
+        
+        // Update internal state on background queue (Serial)
         self.previousNetworkStats = currentNetwork
         self.lastCheckTime = Date()
     }
 
     // MARK: - CPU Usage
-    private func getCPUUsage() -> Double {
+    private func getCPUUsage() -> (user: Double, system: Double, idle: Double) {
         var cpuLoad = host_cpu_load_info()
         var count = mach_msg_type_number_t(MemoryLayout<host_cpu_load_info>.size / MemoryLayout<integer_t>.size)
         
@@ -130,21 +163,17 @@ class SystemMonitor: ObservableObject {
             }
         }
         
-        guard result == KERN_SUCCESS else { return 0.0 }
-        
-        // This gives cumulative ticks. To get usage, we need delta since last check.
-        // For simplicity in this lightweight version, we can use a simpler approach or maintain state.
-        // Let's implement a stateful calculation for accuracy.
-        
+        guard result == KERN_SUCCESS else { return (0, 0, 0) }
         return calculateCPUPercentage(load: cpuLoad)
     }
     
     private var previousCPULoad: host_cpu_load_info?
     
-    private func calculateCPUPercentage(load: host_cpu_load_info) -> Double {
+    // Returns (User, System, Idle) percentages
+    private func calculateCPUPercentage(load: host_cpu_load_info) -> (user: Double, system: Double, idle: Double) {
         guard let prev = previousCPULoad else {
             previousCPULoad = load
-            return 0.0
+            return (0, 0, 0)
         }
         
         let userDiff = Double(load.cpu_ticks.0 - prev.cpu_ticks.0)
@@ -156,22 +185,17 @@ class SystemMonitor: ObservableObject {
         
         previousCPULoad = load
         
-        if totalTicks == 0 { return 0.0 }
+        if totalTicks == 0 { return (0, 0, 0) }
         
         let userPercent = ((userDiff + niceDiff) / totalTicks) * 100.0
         let sysPercent = (sysDiff / totalTicks) * 100.0
         let idlePercent = (idleDiff / totalTicks) * 100.0
         
-        // Set values directly (Timer runs on main thread)
-        self.cpuUser = userPercent
-        self.cpuSystem = sysPercent
-        self.cpuIdle = idlePercent
-        
-        return userPercent + sysPercent
+        return (userPercent, sysPercent, idlePercent)
     }
 
     // MARK: - Memory Usage
-    private func getMemoryUsage() -> Double {
+    private func getMemoryUsage() -> (usagePercent: Double, usedBytes: UInt64) {
         var stats = vm_statistics64()
         var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size)
         
@@ -181,15 +205,10 @@ class SystemMonitor: ObservableObject {
             }
         }
         
-        guard result == KERN_SUCCESS else { return 0.0 }
+        guard result == KERN_SUCCESS else { return (0, 0) }
         
         let pageSize = UInt64(vm_kernel_page_size)
         let total = ProcessInfo.processInfo.physicalMemory
-        
-        // Match Activity Monitor's calculation exactly:
-        // Used = Total - Available
-        // Available = Free + Inactive + Speculative (pages that can be reclaimed)
-        // But we ADD back Compressed because those are in swap
         
         let freeBytes = UInt64(stats.free_count) * pageSize
         let inactiveBytes = UInt64(stats.inactive_count) * pageSize  
@@ -201,33 +220,27 @@ class SystemMonitor: ObservableObject {
         // Used = Total - Available
         let used = total > available ? total - available : 0
         
-        self.memoryUsedBytes = used
+        let percent = (Double(used) / Double(total)) * 100.0
         
-        return (Double(used) / Double(total)) * 100.0
+        return (percent, used)
     }
 
     // MARK: - Disk Usage
-    private func getDiskUsage() -> Double {
+    private func getDiskUsage() -> (usagePercent: Double, usedBytes: Int64, freeBytes: Int64, totalBytes: Int64) {
         do {
             let url = URL(fileURLWithPath: "/")
-            // Use volumeAvailableCapacityForImportantUsageKey to include purgeable space
             let values = try url.resourceValues(forKeys: [.volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey])
             
             if let total = values.volumeTotalCapacity, let available = values.volumeAvailableCapacityForImportantUsage {
                 let used = Int64(total) - available
+                let percent = (Double(used) / Double(total)) * 100.0
                 
-                DispatchQueue.main.async {
-                    self.diskUsedBytes = used
-                    self.diskFreeBytes = available
-                    self.diskTotalBytes = Int64(total)
-                }
-                
-                return (Double(used) / Double(total)) * 100.0
+                return (percent, used, Int64(available), Int64(total))
             }
         } catch {
             print("Error getting disk usage: \(error)")
         }
-        return 0.0
+        return (0, 0, 0, 0)
     }
 
     // MARK: - Helpers
@@ -289,82 +302,9 @@ class SystemMonitor: ObservableObject {
         return (totalIn, totalOut)
     }
     
-    // MARK: - Disk I/O
-    private var previousDiskIO: (read: Int64, write: Int64)?
-    
-    // Simplified Disk I/O using a shell command (iostat) to avoid complex IOKit bridging in pure Swift file
-    // In a real production app with full Xcode project, we'd add a C/Objective-C helper or Bridge.
-    // However, IOKit IS available in Swift, let's try a direct registry approach if possible, 
-    // but filtering for the main disk is tricky.
-    // IMPROVEMENT: For safety and reliability in this script-like environment, we will use a shell helper.
-    // Actually, let's use the Process to run `iostat -d -c 2 -w 1` is not great for polling.
-    // let's try to just fetch via a simple `Process` call to `iostat -d -n 0` which gives totals?
-    // `iostat -d` gives killobytes/transaction etc.
-    // `netstat -b -I en0` for network.
-    // Let's stick to parsing `iostat -Id` (cumulative)
-    
-    private func updateDiskIO() {
-        // App Store Sandbox Limitation:
-        // We cannot run `top` or `iostat` via Process() to get disk speed stats.
-        // This requires entitlements that are not available to general apps.
-        //
-        // To comply with App Store guidelines, we are disabling the "Disk Speed" feature.
-        // The "Disk Space" (Used/Free) feature still works perfectly via URLResourceValues.
-        
-        self.diskReadSpeed = 0.0
-        self.diskWriteSpeed = 0.0
-    }
-    
-    private func parseTopDiskSize(_ raw: String) -> Int64 {
-        // Example: "Disks: 5495574/204G read" -> extract 204G
-        // Example: " 4280590/190M written."
-        
-        guard let slashIndex = raw.firstIndex(of: "/") else { return 0 }
-        let afterSlash = raw[raw.index(after: slashIndex)...]
-        // Now "204G read" or "190M written."
-        
-        let components = afterSlash.trimmingCharacters(in: .whitespaces).split(separator: " ")
-        if let sizeStr = components.first {
-            // sizeStr is "204G", "190M", "123K", "123B"
-            let lastChar = sizeStr.last ?? "B"
-            let numberStr = sizeStr.dropLast()
-            guard let number = Double(numberStr) else { return 0 }
-            
-            var multiplier: Double = 1
-            if lastChar == "G" { multiplier = 1_073_741_824 }
-            else if lastChar == "M" { multiplier = 1_048_576 }
-            else if lastChar == "K" { multiplier = 1024 }
-            
-            return Int64(number * multiplier)
-        }
-        return 0
-    }
-    
-    private func updateDiskSpeed(newRead: Int64, newWrite: Int64) {
-        if let prev = previousDiskIO, let lastTime = lastCheckTime {
-             let timeDiff = Date().timeIntervalSince(lastTime)
-             if timeDiff > 0 {
-                 let rSpeed = Double(newRead - prev.read) / timeDiff
-                 let wSpeed = Double(newWrite - prev.write) / timeDiff
-                 
-                 // Filter out negative spikes if top resets or parsing fails
-                 if rSpeed >= 0 { 
-                    self.diskReadSpeed = rSpeed
-                    self.diskReadTotal = newRead
-                    updateHistory(&diskReadHistory, newValue: rSpeed)
-                 }
-                 if wSpeed >= 0 { 
-                    self.diskWriteSpeed = wSpeed 
-                    self.diskWriteTotal = newWrite
-                    updateHistory(&diskWriteHistory, newValue: wSpeed)
-                 }
-             }
-        } else {
-            self.diskReadTotal = newRead
-            self.diskWriteTotal = newWrite
-        }
-        self.previousDiskIO = (newRead, newWrite)
-    }
+    // MARK: - Disk I/O (Removed: Sandbox Limitation)
+    // Disk Speed monitoring via `top` or `iostat` is not allowed in Mac App Store (Sandbox).
+    // We strictly monitor Storage Space (Free/Used) via URLResourceValues which is compliant.
 }
 // Helper typealias for getifaddrs
 typealias TypeP = UnsafeMutablePointer<ifaddrs>
